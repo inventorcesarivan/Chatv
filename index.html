@@ -1,681 +1,658 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proyecto xtream tv</title>
-    <!-- Tailwind CSS for sleek, responsive styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- HLS.js for m3u8 playback -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proyecto Xtream TV</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- HLS.js para reproducción de streams M3U8 -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, set, get, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     
-    <style>
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #18181b;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #3f3f46;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #52525b;
-        }
+    // Firebase Config Pública de Prueba / Demo
+    const firebaseConfig = {
+      databaseURL: "https://xtream-tv-chat-default-rtdb.firebaseio.com/"
+    };
+    
+    // Inicializar Firebase
+    let db = null;
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      window.firebaseDb = db;
+      window.fbRef = ref;
+      window.fbPush = push;
+      window.fbOnChildAdded = onChildAdded;
+      window.fbSet = set;
+      window.fbGet = get;
+      window.fbQuery = query;
+      window.fbLimitToLast = limitToLast;
+      console.log("Firebase conectado correctamente.");
+    } catch (e) {
+      console.error("Error al conectar Firebase:", e);
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #141414; color: #fff; }
+    
+    /* Estilos para sombreado en minichat overlay */
+    .text-shadow-video {
+      text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 5px rgba(0,0,0,0.7);
+    }
 
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: #09090b;
-            color: #f4f4f5;
-        }
-
-        .channel-card {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .channel-card:hover {
-            transform: scale(1.05);
-        }
-
-        .text-shadow-video {
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.9), 0px 0px 5px rgba(0,0,0,0.7);
-        }
-
-        /* Flexbox layouts with side-by-side support */
-        #mediaLayoutWrapper.layout-right {
-            display: flex;
-            flex-direction: row;
-            align-items: stretch;
-            gap: 16px;
-        }
-        #mediaLayoutWrapper.layout-right .video-col {
-            flex: 1;
-            min-width: 0;
-        }
-        #mediaLayoutWrapper.layout-right .chat-panel {
-            width: 350px;
-            flex-shrink: 0;
-            position: relative;
-            height: auto;
-        }
-
-        #mediaLayoutWrapper.layout-left {
-            display: flex;
-            flex-direction: row-reverse;
-            align-items: stretch;
-            gap: 16px;
-        }
-        #mediaLayoutWrapper.layout-left .video-col {
-            flex: 1;
-            min-width: 0;
-        }
-        #mediaLayoutWrapper.layout-left .chat-panel {
-            width: 350px;
-            flex-shrink: 0;
-            position: relative;
-            height: auto;
-        }
-
-        #mediaLayoutWrapper.layout-bottom {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        #mediaLayoutWrapper.layout-bottom .chat-panel {
-            width: 100%;
-            height: 350px;
-            position: relative;
-        }
-
-        #mediaLayoutWrapper.layout-top {
-            display: flex;
-            flex-direction: column-reverse;
-            gap: 16px;
-        }
-        #mediaLayoutWrapper.layout-top .chat-panel {
-            width: 100%;
-            height: 350px;
-            position: relative;
-        }
-    </style>
+    /* Contenedor Flex Layouts Laterales */
+    #mediaLayoutWrapper.layout-left,
+    #mediaLayoutWrapper.layout-right {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      gap: 16px;
+      width: 100%;
+      max-width: 100% !important;
+    }
+    #mediaLayoutWrapper.layout-left .video-wrapper,
+    #mediaLayoutWrapper.layout-right .video-wrapper {
+      flex: 1;
+      min-width: 0;
+    }
+    #mediaLayoutWrapper.layout-left .chat-panel,
+    #mediaLayoutWrapper.layout-right .chat-panel {
+      width: 350px;
+      flex-shrink: 0;
+      position: relative !important;
+      height: auto !important;
+      max-height: 500px;
+      top: auto !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+    }
+    #mediaLayoutWrapper.layout-left {
+      flex-direction: row-reverse;
+    }
+    
+    /* Layout Arriba / Abajo */
+    #mediaLayoutWrapper.layout-top,
+    #mediaLayoutWrapper.layout-bottom {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+    }
+    #mediaLayoutWrapper.layout-top .chat-panel,
+    #mediaLayoutWrapper.layout-bottom .chat-panel {
+      position: relative !important;
+      width: 100% !important;
+      height: 200px !important;
+      top: auto !important;
+      left: auto !important;
+    }
+    #mediaLayoutWrapper.layout-top {
+      flex-direction: column-reverse;
+    }
+  </style>
 </head>
 <body class="min-h-screen flex flex-col overflow-x-hidden">
 
-    <!-- Header / Navbar -->
-    <header class="w-full py-4 px-6 md:px-12 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent fixed top-0 z-50">
-        <div class="flex items-center gap-4">
-            <!-- Hamburger Menu Button -->
-            <button id="openMenuBtn" class="text-zinc-300 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
-            <h1 class="text-3xl font-black tracking-tighter text-red-600 drop-shadow-md">XTREAM<span class="text-white">TV</span></h1>
-        </div>
-        <div class="flex gap-2">
-            <button id="toggleMiniChatBtn" class="bg-red-600/90 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded-full backdrop-blur-sm transition-colors border border-red-500 shadow-lg flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
-                </svg>
-                Chat
-            </button>
-        </div>
-    </header>
+  <!-- TOP NAVBAR -->
+  <header class="bg-[#181818] border-b border-neutral-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+    <div class="flex items-center space-x-4">
+      <button id="menuToggleBtn" class="p-2 text-neutral-400 hover:text-white focus:outline-none">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+      <h1 class="text-xl font-bold tracking-wider text-red-600 flex items-center gap-2">
+        <span>🎬</span> XTREAM TV
+      </h1>
+    </div>
+    
+    <div class="flex items-center space-x-4">
+      <div id="activeRoomBadge" class="text-xs bg-neutral-800 text-neutral-300 px-3 py-1 rounded-full border border-neutral-700">
+        Sala: Canales Generales
+      </div>
+    </div>
+  </header>
 
-    <!-- Slide-out Sidebar Menu -->
-    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/70 z-50 hidden backdrop-blur-sm transition-opacity"></div>
-    <aside id="sidebar" class="fixed top-0 left-0 bottom-0 w-80 bg-zinc-900 border-r border-zinc-800 z-50 transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl">
-        <div class="p-4 border-b border-zinc-800 flex justify-between items-center">
-            <h2 class="font-bold text-lg text-white">Menú Principal</h2>
-            <button id="closeMenuBtn" class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
+  <!-- SIDEBAR MENU DESPLEGABLE -->
+  <div id="sidebarMenu" class="fixed inset-y-0 left-0 w-80 bg-[#1f1f1f] border-r border-neutral-800 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
+    <div class="p-5 border-b border-neutral-800 flex items-center justify-between">
+      <h2 class="font-bold text-lg text-white">Menú Principal</h2>
+      <button id="closeMenuBtn" class="text-neutral-400 hover:text-white">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="p-4 flex-1 overflow-y-auto space-y-6">
+      <!-- Sección Canales por Defecto -->
+      <div>
+        <h3 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Canales Destacados</h3>
+        <div id="defaultChannelsList" class="space-y-1">
+          <!-- Se llena por JS -->
         </div>
+      </div>
+
+      <!-- Sección Agregar M3U -->
+      <div class="border-t border-neutral-800 pt-4">
+        <h3 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Agregar Lista M3U (Link)</h3>
+        <div class="space-y-2">
+          <input type="text" id="m3uUrlInput" placeholder="https://ejemplo.com/lista.m3u" class="w-full bg-neutral-900 border border-neutral-700 text-sm rounded px-3 py-2 text-white focus:outline-none focus:border-red-600">
+          <button id="loadM3uBtn" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded transition">Cargar por URL</button>
+        </div>
+      </div>
+
+      <!-- Sección Archivos Locales (Video o M3U) -->
+      <div class="border-t border-neutral-800 pt-4">
+        <h3 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Cargar Archivo Local (.m3u / Video)</h3>
+        <input type="file" id="localMediaInput" accept=".m3u,.m3u8,video/*,audio/*" class="block w-full text-xs text-neutral-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-neutral-800 file:text-white hover:file:bg-neutral-700 cursor-pointer">
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY BACKDROP MENU -->
+  <div id="sidebarBackdrop" class="fixed inset-0 bg-black/60 z-40 hidden"></div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col justify-center items-center">
+    
+    <!-- WRAPPER PRINCIPAL (Video + Chat dinámico) -->
+    <div id="mediaLayoutWrapper" class="relative w-full max-w-5xl mx-auto flex flex-col shadow-2xl rounded-xl overflow-hidden bg-black border border-neutral-800">
+      
+      <!-- REPRODUCTOR DE VIDEO -->
+      <div class="video-wrapper relative w-full aspect-video bg-black flex items-center justify-center">
+        <video id="videoPlayer" class="w-full h-full object-contain" controls autoplay></video>
         
-        <div class="flex-grow overflow-y-auto p-4 flex flex-col gap-6">
-            <!-- Section: Default Channels -->
-            <div>
-                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Contenido por Defecto</h3>
-                <button id="menuDefaultHome" class="w-full text-left px-3 py-2 rounded-lg bg-red-600/20 text-red-400 font-medium text-sm flex items-center gap-2 border border-red-500/30">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                    Canales en Vivo
-                </button>
+        <!-- BARRA SUPERIOR DE CONTROLES DEL REPRODUCTOR -->
+        <div class="absolute top-3 right-3 z-30 flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+          <span id="currentTitle" class="text-xs font-medium text-white max-w-[200px] truncate">Selecciona un canal</span>
+          <!-- Botón Configuración del Chat -->
+          <div class="relative">
+            <button id="chatConfigToggle" class="text-neutral-300 hover:text-white p-1 rounded focus:outline-none" title="Configurar Chat">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+            </button>
+            
+            <!-- MENÚ DESPLEGABLE DE CONFIGURACIÓN DEL CHAT -->
+            <div id="chatConfigMenu" class="absolute right-0 mt-2 w-56 bg-[#1f1f1f] border border-neutral-700 rounded-lg shadow-2xl py-2 hidden z-50 text-xs">
+              <div class="px-3 py-1 font-semibold text-neutral-400 uppercase tracking-wider border-b border-neutral-700 mb-1">Posición del Chat</div>
+              <button onclick="setChatLayout('overlay')" class="w-full text-left px-4 py-2 hover:bg-neutral-700 text-white flex items-center justify-between">Flotante (Overlay)</button>
+              <button onclick="setChatLayout('right')" class="w-full text-left px-4 py-2 hover:bg-neutral-700 text-white flex items-center justify-between">A la derecha</button>
+              <button onclick="setChatLayout('left')" class="w-full text-left px-4 py-2 hover:bg-neutral-700 text-white flex items-center justify-between">A la izquierda</button>
+              <button onclick="setChatLayout('bottom')" class="w-full text-left px-4 py-2 hover:bg-neutral-700 text-white flex items-center justify-between">Abajo del video</button>
+              
+              <div class="border-t border-neutral-700 my-1"></div>
+              <div class="px-3 py-1 font-semibold text-neutral-400 uppercase tracking-wider border-b border-neutral-700 mb-1">Acciones</div>
+              <button id="shareRoomBtn" class="w-full text-left px-4 py-2 hover:bg-red-600 text-white font-medium flex items-center gap-2">
+                <span>🔗</span> Compartir Sala
+              </button>
+              <button id="popoutChatBtn" class="w-full text-left px-4 py-2 hover:bg-neutral-700 text-white flex items-center gap-2">
+                <span>↗</span> Abrir en Pestaña
+              </button>
             </div>
-
-            <!-- Section: M3U Lists -->
-            <div>
-                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Agregar Lista M3U</h3>
-                <div class="flex flex-col gap-2">
-                    <input type="text" id="m3uUrlInput" placeholder="https://ejemplo.com/lista.m3u" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-white focus:outline-none focus:border-red-500">
-                    <button id="loadM3uBtn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium py-2 rounded border border-zinc-600 transition-colors">Cargar Lista M3U</button>
-                </div>
-            </div>
-
-            <!-- Section: Xtream Codes -->
-            <div>
-                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Servidor Xtream Codes</h3>
-                <div class="flex flex-col gap-2">
-                    <input type="text" id="xtreamUrl" placeholder="URL Servidor (ej: http://server:8080)" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-white focus:outline-none focus:border-red-500">
-                    <input type="text" id="xtreamUser" placeholder="Usuario" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-white focus:outline-none focus:border-red-500">
-                    <input type="password" id="xtreamPass" placeholder="Contraseña" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-white focus:outline-none focus:border-red-500">
-                    <button id="loadXtreamBtn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium py-2 rounded border border-zinc-600 transition-colors">Conectar Xtream</button>
-                </div>
-            </div>
-
-            <!-- Section: Local Media -->
-            <div>
-                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Archivo Local (Video / Música)</h3>
-                <label class="w-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium py-2 px-3 rounded border border-zinc-600 transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                    Seleccionar Archivo Local
-                    <input type="file" id="localFileInput" accept="video/*,audio/*" class="hidden">
-                </label>
-            </div>
+          </div>
         </div>
-    </aside>
+      </div>
 
-    <!-- Main Content Area: Player -->
-    <main class="flex-grow flex flex-col pt-[72px] lg:pt-[80px] px-4 md:px-8 gap-4 max-w-[1920px] mx-auto w-full">
+      <!-- PANEL DE CHAT DINÁMICO -->
+      <div id="chatPanel" class="chat-panel absolute top-4 left-4 z-20 w-80 h-96 bg-neutral-900/90 backdrop-blur-md border border-neutral-700/80 rounded-xl flex flex-col shadow-2xl transition-all duration-300">
         
-        <!-- Video Player Section -->
-        <section id="playerContainer" class="w-full flex flex-col rounded-xl overflow-hidden bg-black shadow-2xl relative border border-zinc-800 mx-auto">
-            
-            <!-- FLEX WRAPPER FOR VIDEO AND CHAT -->
-            <div id="mediaLayoutWrapper" class="w-full relative bg-black transition-all duration-300">
-                
-                <!-- Video Column -->
-                <div id="videoCol" class="video-col relative w-full flex flex-col justify-center">
-                    <div class="aspect-video w-full bg-black relative overflow-hidden group">
-                        <video id="videoElement" class="w-full h-full object-contain" controls autoplay playsinline></video>
-                        <div id="videoLoading" class="absolute inset-0 flex items-center justify-center bg-black/50 hidden">
-                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Chat Overlay / Docked Panel -->
-                <div id="miniChatOverlay" class="chat-panel absolute top-4 left-4 w-80 h-[60%] bg-black/40 backdrop-blur-md rounded-xl border border-white/20 flex flex-col z-30 transition-all duration-300 shadow-2xl">
-                    <!-- Header -->
-                    <div class="px-3 py-2 border-b border-white/20 bg-black/60 flex justify-between items-center">
-                        <span id="chatRoomTitle" class="text-xs font-bold text-white/90 drop-shadow-md flex items-center gap-2">
-                            <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                            Chat en vivo
-                        </span>
-                        <div class="flex items-center gap-1">
-                            <button id="chatSettingsBtn" class="text-white/70 hover:text-white transition-colors p-1 rounded hover:bg-white/10" title="Configuración de Chat">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Settings Panel -->
-                    <div id="chatSettingsPanel" class="hidden absolute top-10 right-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-40 w-64 p-3 text-sm flex flex-col gap-3">
-                        <div>
-                            <label class="text-zinc-400 text-xs font-bold block mb-1">Vista del Chat</label>
-                            <select id="layoutSelect" class="w-full bg-zinc-800 text-white text-xs border border-zinc-700 rounded p-1 focus:outline-none focus:border-red-500">
-                                <option value="floating">Flotante (Overlay)</option>
-                                <option value="right">A la derecha</option>
-                                <option value="left">A la izquierda</option>
-                                <option value="bottom">Debajo del video</option>
-                                <option value="top">Arriba del video</option>
-                            </select>
-                        </div>
-                        <div id="posSettingWrap">
-                            <label class="text-zinc-400 text-xs font-bold block mb-1">Posición (Flotante)</label>
-                            <select id="posSelect" class="w-full bg-zinc-800 text-white text-xs border border-zinc-700 rounded p-1 focus:outline-none focus:border-red-500">
-                                <option value="tl">Arriba Izquierda</option>
-                                <option value="tr">Arriba Derecha</option>
-                                <option value="bl">Abajo Izquierda</option>
-                                <option value="br">Abajo Derecha</option>
-                            </select>
-                        </div>
-                        <div id="sizeSettingWrap">
-                            <label class="text-zinc-400 text-xs font-bold block mb-1">Tamaño (Flotante)</label>
-                            <select id="sizeSelect" class="w-full bg-zinc-800 text-white text-xs border border-zinc-700 rounded p-1 focus:outline-none focus:border-red-500">
-                                <option value="medium">Mediano</option>
-                                <option value="small">Pequeño</option>
-                                <option value="large">Grande</option>
-                            </select>
-                        </div>
-                        <button id="shareRoomBtn" class="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-1.5 rounded font-medium flex items-center justify-center gap-1 transition-colors mt-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-                            Compartir Sala
-                        </button>
-                    </div>
-
-                    <!-- Setup Nickname -->
-                    <div id="nicknameSetup" class="flex flex-col items-center justify-center flex-grow p-4 bg-black/40">
-                        <input type="text" id="nicknameInput" placeholder="Elige un apodo..." class="w-full px-3 py-1.5 bg-black/60 border border-white/20 rounded-md text-white text-sm focus:outline-none focus:border-red-500 mb-2" maxlength="15">
-                        <button id="joinChatBtn" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 rounded-md transition-colors">Entrar al Chat</button>
-                    </div>
-
-                    <!-- Messages Container -->
-                    <div id="activeChat" class="hidden flex-col flex-grow overflow-hidden">
-                        <div id="miniMessagesList" class="flex-grow overflow-y-auto p-3 flex flex-col gap-2 relative"></div>
-                        <!-- Chat Input -->
-                        <div class="p-2 bg-black/60 border-t border-white/20">
-                            <form id="chatForm" class="flex gap-2">
-                                <input type="text" id="messageInput" placeholder="Mensaje..." class="flex-grow px-2 py-1.5 bg-black/40 border border-white/20 rounded text-xs text-white focus:outline-none focus:border-red-500 placeholder-zinc-400" autocomplete="off">
-                                <button type="submit" id="sendBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded transition-colors flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                    </svg>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Video Info Bar -->
-            <div class="p-4 bg-zinc-900 border-t border-zinc-800 w-full z-20">
-                <h2 id="mediaTitle" class="text-xl font-bold">Documentales TV - En Vivo</h2>
-                <p id="mediaDesc" class="text-zinc-400 text-sm mt-1">Transmisión de prueba (HLS / m3u8)</p>
-            </div>
-        </section>
-    </main>
-
-    <!-- Channels Carousel -->
-    <section class="mt-8 mb-12 px-4 md:px-8 w-full max-w-[1920px] mx-auto">
-        <h3 class="text-xl font-bold mb-4 px-2">Canales Sugeridos</h3>
-        <div id="channelsCarousel" class="flex gap-4 overflow-x-auto no-scrollbar pb-4 px-2 snap-x snap-mandatory">
-            
-            <div class="channel-card snap-start flex-shrink-0 w-[240px] md:w-[280px] cursor-pointer group" data-src="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" data-title="Documentales TV - En Vivo" data-channel="docu_01">
-                <div class="aspect-[16/9] rounded-md overflow-hidden bg-zinc-800 relative shadow-lg">
-                    <img src="https://placehold.co/600x338/18181b/e4e4e7?text=Docu+TV" class="w-full h-full object-cover group-hover:opacity-80 transition-opacity">
-                    <div class="absolute bottom-2 left-2 bg-red-600 px-2 py-1 rounded text-xs font-bold text-white shadow-md">EN VIVO</div>
-                </div>
-                <p class="mt-2 text-sm font-bold text-white">Documentales TV</p>
-            </div>
-
-            <div class="channel-card snap-start flex-shrink-0 w-[240px] md:w-[280px] cursor-pointer group" data-src="https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8" data-title="Cine Premium 24/7" data-channel="cine_02">
-                <div class="aspect-[16/9] rounded-md overflow-hidden bg-zinc-800 relative shadow-lg">
-                    <img src="https://placehold.co/600x338/18181b/e4e4e7?text=Cine+TV" class="w-full h-full object-cover group-hover:opacity-80 transition-opacity">
-                    <div class="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs font-bold text-white border border-zinc-700">CINE</div>
-                </div>
-                <p class="mt-2 text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Cine Premium 24/7</p>
-            </div>
-
-            <div class="channel-card snap-start flex-shrink-0 w-[240px] md:w-[280px] cursor-pointer group" data-src="https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" data-title="Deportes Acción" data-channel="deportes_03">
-                <div class="aspect-[16/9] rounded-md overflow-hidden bg-zinc-800 relative shadow-lg">
-                    <img src="https://placehold.co/600x338/18181b/e4e4e7?text=Deportes" class="w-full h-full object-cover group-hover:opacity-80 transition-opacity">
-                    <div class="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs font-bold text-white border border-zinc-700">DEPORTES</div>
-                </div>
-                <p class="mt-2 text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Deportes Acción</p>
-            </div>
-
+        <!-- Cabecera del Chat -->
+        <div class="p-3 border-b border-neutral-800 flex items-center justify-between bg-black/40">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+            <span id="chatRoomTitle" class="text-xs font-bold text-white truncate max-w-[150px]">Chat en Vivo</span>
+          </div>
+          <span id="onlineCount" class="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">En línea</span>
         </div>
-    </section>
 
-    <!-- Application Script -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        <!-- Lista de Mensajes -->
+        <div id="messagesList" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
+          <div class="text-neutral-500 text-center italic py-4">Conectando al chat de la sala...</div>
+        </div>
 
-        // --- STATE & URL PARAMS ---
-        const urlParams = new URLSearchParams(window.location.search);
-        const sharedRoom = urlParams.get('room');
+        <!-- Input para Enviar Mensajes -->
+        <div class="p-3 border-t border-neutral-800 bg-black/50">
+          <div id="nicknameSection" class="mb-2 flex gap-1">
+            <input type="text" id="nicknameInput" placeholder="Tu apodo..." class="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-red-600">
+            <button id="saveNicknameBtn" class="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1 rounded text-xs">Fijar</button>
+          </div>
+          <form id="messageForm" class="flex gap-1">
+            <input type="text" id="messageInput" placeholder="Escribe un mensaje..." class="flex-1 bg-neutral-800 border border-neutral-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-600" autocomplete="off">
+            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs font-medium transition">Enviar</button>
+          </form>
+        </div>
 
-        let currentChannelId = sharedRoom ? sharedRoom : "docu_01";
-        let activeHls = null;
+      </div>
 
-        // --- SIDEBAR MENU LOGIC ---
-        const sidebar = document.getElementById('sidebar');
-        const sidebarBackdrop = document.getElementById('sidebarBackdrop');
-        const openMenuBtn = document.getElementById('openMenuBtn');
-        const closeMenuBtn = document.getElementById('closeMenuBtn');
-        const menuDefaultHome = document.getElementById('menuDefaultHome');
+    </div>
 
-        function openMenu() {
-            sidebar.classList.remove('-translate-x-full');
-            sidebarBackdrop.classList.remove('hidden');
+    <!-- SECCIÓN DE CATEGORÍAS Y CANALES M3U CARGADOS -->
+    <div id="customPlaylistContainer" class="w-full max-w-5xl mt-8 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="playlistNameTitle" class="text-sm font-bold text-neutral-300 uppercase tracking-wider">Lista M3U Cargada</h3>
+        <span id="playlistCountBadge" class="text-xs bg-neutral-800 text-neutral-400 px-2.5 py-1 rounded-full">0 canales</span>
+      </div>
+      
+      <!-- Pestañas de Categorías -->
+      <div id="categoryTabs" class="flex flex-wrap gap-2 mb-4">
+        <!-- Generado dinámicamente -->
+      </div>
+
+      <!-- Cuadrícula de Canales de la Categoría Activa -->
+      <div id="playlistItemsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <!-- Se llena por JS -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // Canales por defecto de prueba (con HLS público libre)
+    const defaultChannels = [
+      {
+        name: "Big Buck Bunny (Prueba HD)",
+        url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+        room: "canal-big-buck-bunny",
+        category: "Destacados"
+      },
+      {
+        name: "Sintel Animation Stream",
+        url: "https://bitmovin-a.akamaihd.net/content/sintel/hls/playlist.m3u8",
+        room: "canal-sintel",
+        category: "Películas"
+      },
+      {
+        name: "Tears of Steel 4K Stream",
+        url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+        room: "canal-tears-of-steel",
+        category: "Series"
+      }
+    ];
+
+    let currentRoom = "canal-big-buck-bunny";
+    let currentUser = "Usuario_" + Math.floor(Math.random() * 1000);
+    let loadedPlaylistCategories = {}; // { "Categoría 1": [ {name, url}, ... ] }
+    let activeCategory = "";
+
+    document.getElementById('nicknameInput').value = currentUser;
+
+    // Inicializar reproductor HLS
+    const video = document.getElementById('videoPlayer');
+    let hls = null;
+
+    function playStream(url, title, roomId) {
+      currentRoom = roomId || "sala-general-default";
+      document.getElementById('currentTitle').innerText = title;
+      document.getElementById('activeRoomBadge').innerText = "Sala: " + title;
+      document.getElementById('chatRoomTitle').innerText = title;
+
+      // Actualizar URL de compartir si hay parámetros
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('room', currentRoom);
+      newUrl.searchParams.set('url', encodeURIComponent(url));
+      newUrl.searchParams.set('title', encodeURIComponent(title));
+      window.history.pushState({}, '', newUrl);
+
+      // Conectar Chat a la nueva sala
+      initChatRoom(currentRoom);
+
+      if (Hls.isSupported()) {
+        if (hls) { hls.destroy(); }
+        hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        video.addEventListener('loadedmetadata', () => { video.play().catch(() => {}); });
+      } else {
+        video.src = url;
+        video.play().catch(() => {});
+      }
+    }
+
+    // Renderizar Canales por Defecto
+    function renderDefaultChannels() {
+      const listContainer = document.getElementById('defaultChannelsList');
+      listContainer.innerHTML = '';
+      defaultChannels.forEach(ch => {
+        const btn = document.createElement('button');
+        btn.className = "w-full text-left px-3 py-2 rounded text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition truncate flex items-center gap-2";
+        btn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> ${ch.name}`;
+        btn.onclick = () => {
+          playStream(ch.url, ch.name, ch.room);
+          closeSidebar();
+        };
+        listContainer.appendChild(btn);
+      });
+    }
+
+    // Menú Lateral Toggle
+    const sidebar = document.getElementById('sidebarMenu');
+    const backdrop = document.getElementById('sidebarBackdrop');
+
+    function openSidebar() {
+      sidebar.classList.remove('-translate-x-full');
+      backdrop.classList.remove('hidden');
+    }
+    function closeSidebar() {
+      sidebar.classList.add('-translate-x-full');
+      backdrop.classList.add('hidden');
+    }
+
+    document.getElementById('menuToggleBtn').onclick = openSidebar;
+    document.getElementById('closeMenuBtn').onclick = closeSidebar;
+    backdrop.onclick = closeSidebar;
+
+    // Configuración del Chat Menú Toggle
+    const chatConfigToggle = document.getElementById('chatConfigToggle');
+    const chatConfigMenu = document.getElementById('chatConfigMenu');
+
+    chatConfigToggle.onclick = (e) => {
+      e.stopPropagation();
+      chatConfigMenu.classList.toggle('hidden');
+    };
+
+    document.onclick = () => {
+      chatConfigMenu.classList.add('hidden');
+    };
+
+    // Cambiar Layout del Chat
+    window.setChatLayout = function(mode) {
+      const wrapper = document.getElementById('mediaLayoutWrapper');
+      const chatPanel = document.getElementById('chatPanel');
+
+      wrapper.className = "relative w-full max-w-5xl mx-auto flex flex-col shadow-2xl rounded-xl overflow-hidden bg-black border border-neutral-800";
+      chatPanel.className = "chat-panel w-80 h-96 bg-neutral-900/90 backdrop-blur-md border border-neutral-700/80 rounded-xl flex flex-col shadow-2xl transition-all duration-300";
+
+      if (mode === 'overlay') {
+        chatPanel.classList.add('absolute', 'top-4', 'left-4', 'z-20');
+      } else if (mode === 'right') {
+        wrapper.classList.add('layout-right');
+      } else if (mode === 'left') {
+        wrapper.classList.add('layout-left');
+      } else if (mode === 'bottom') {
+        wrapper.classList.add('layout-bottom');
+      }
+      chatConfigMenu.classList.add('hidden');
+    };
+
+    // Compartir Sala
+    document.getElementById('shareRoomBtn').onclick = () => {
+      navigator.clipboard.writeText(window.location.href);
+      alert("¡Enlace de sala copiado al portapapeles! Compártelo con otros usuarios para unirse a tu transmisión y chat.");
+      chatConfigMenu.classList.add('hidden');
+    };
+
+    // Abrir en Pestaña (Pop-out Chat)
+    document.getElementById('popoutChatBtn').onclick = () => {
+      const chatHtml = window.location.href;
+      window.open(chatHtml, '_blank', 'width=400,height=600');
+      chatConfigMenu.classList.add('hidden');
+    };
+
+    // FIJAR APODO
+    document.getElementById('saveNicknameBtn').onclick = () => {
+      const nick = document.getElementById('nicknameInput').value.trim();
+      if (nick) {
+        currentUser = nick;
+        alert("Apodo guardado como: " + currentUser);
+      }
+    };
+
+    // SISTEMA DE CHAT FIREBASE
+    function initChatRoom(roomId) {
+      const messagesList = document.getElementById('messagesList');
+      messagesList.innerHTML = '<div class="text-neutral-500 text-center italic py-2">Cargando mensajes...</div>';
+
+      if (!window.firebaseDb) {
+        messagesList.innerHTML = '<div class="text-red-400 text-center text-xs">Error: Firebase no inicializado.</div>';
+        return;
+      }
+
+      const cleanRoomId = roomId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const chatRef = window.fbRef(window.firebaseDb, 'chats/' + cleanRoomId);
+      const lastMessagesQuery = window.fbQuery(chatRef, window.fbLimitToLast(50));
+
+      messagesList.innerHTML = '';
+      
+      window.fbOnChildAdded(lastMessagesQuery, (snapshot) => {
+        const msg = snapshot.val();
+        appendMessageUI(msg.user, msg.text, msg.time);
+      });
+    }
+
+    function appendMessageUI(user, text, time) {
+      const messagesList = document.getElementById('messagesList');
+      const div = document.createElement('div');
+      div.className = "flex flex-col";
+      div.innerHTML = `
+        <div class="flex items-baseline space-x-1">
+          <span class="font-bold text-red-400 text-[11px]">${escapeHtml(user)}</span>
+          <span class="text-[9px] text-neutral-500">${time || ''}</span>
+        </div>
+        <span class="text-neutral-200 text-xs break-words text-shadow-video">${escapeHtml(text)}</span>
+      `;
+      messagesList.appendChild(div);
+      messagesList.scrollTop = messagesList.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    // Enviar Mensaje
+    document.getElementById('messageForm').onsubmit = (e) => {
+      e.preventDefault();
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const cleanRoomId = currentRoom.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const chatRef = window.fbRef(window.firebaseDb, 'chats/' + cleanRoomId);
+
+      window.fbPush(chatRef, {
+        user: currentUser,
+        text: text,
+        time: time
+      }).then(() => {
+        input.value = '';
+      }).catch(err => {
+        console.error("Error al enviar mensaje:", err);
+      });
+    };
+
+    // PROCESAMIENTO INTELIGENTE DE M3U (Extrae categorías y agrupa)
+    function parseM3UContent(m3uText, playlistTitle) {
+      const lines = m3uText.split(/?
+/);
+      loadedPlaylistCategories = {};
+      let totalCount = 0;
+
+      let currentTitle = "Canal sin nombre";
+      let currentCategory = "General / Otros";
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (line.startsWith('#EXTINF:')) {
+          // Extraer atributos como group-title si existen
+          const groupMatch = line.match(/group-title="([^"]+)"/i);
+          if (groupMatch && groupMatch[1]) {
+            currentCategory = groupMatch[1].trim();
+          } else {
+            currentCategory = "Canales de TV y Otros";
+          }
+
+          // Extraer el título del canal después de la última coma
+          const commaIndex = line.lastIndexOf(',');
+          if (commaIndex !== -1) {
+            currentTitle = line.substring(commaIndex + 1).trim();
+          }
+        } else if (line && !line.startsWith('#')) {
+          // Es una URL válida de streaming
+          let url = line;
+          
+          // Clasificación automática inteligente basada en el nombre o categoría si es genérica
+          let lowerTitle = currentTitle.toLowerCase();
+          let lowerCat = currentCategory.toLowerCase();
+
+          if (lowerCat.includes('radio') || lowerTitle.includes('radio') || lowerTitle.includes('fm')) {
+            currentCategory = "Radios Online";
+          } else if (lowerCat.includes('pelicula') || lowerCat.includes('movie') || lowerTitle.includes('vof') || lowerTitle.includes('cine')) {
+            currentCategory = "Películas";
+          } else if (lowerCat.includes('serie') || lowerCat.includes('capitulo') || lowerCat.includes('temporada')) {
+            currentCategory = "Series";
+          } else if (lowerCat.includes('sport') || lowerCat.includes('deporte') || lowerTitle.includes('espn') || lowerTitle.includes('fox sports')) {
+            currentCategory = "Deportes";
+          }
+
+          if (!loadedPlaylistCategories[currentCategory]) {
+            loadedPlaylistCategories[currentCategory] = [];
+          }
+
+          loadedPlaylistCategories[currentCategory].push({
+            name: currentTitle,
+            url: url
+          });
+
+          totalCount++;
+          currentTitle = "Canal sin nombre";
+          currentCategory = "General / Otros";
         }
-        function closeMenu() {
-            sidebar.classList.add('-translate-x-full');
-            sidebarBackdrop.classList.add('hidden');
-        }
+      }
 
-        openMenuBtn.addEventListener('click', openMenu);
-        closeMenuBtn.addEventListener('click', closeMenu);
-        sidebarBackdrop.addEventListener('click', closeMenu);
-        menuDefaultHome.addEventListener('click', () => {
-            loadDefaultStream('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'Documentales TV - En Vivo', 'docu_01');
-            closeMenu();
-        });
+      if (totalCount > 0) {
+        document.getElementById('playlistNameTitle').innerText = "Lista: " + playlistTitle;
+        document.getElementById('playlistCountBadge').innerText = totalCount + " elementos";
+        document.getElementById('customPlaylistContainer').classList.remove('hidden');
 
-        // --- VIDEO PLAYER SETUP ---
-        const video = document.getElementById('videoElement');
-        const videoLoading = document.getElementById('videoLoading');
-        const mediaTitle = document.getElementById('mediaTitle');
-        const mediaDesc = document.getElementById('mediaDesc');
-
-        function playStream(url, title, desc, roomId) {
-            mediaTitle.innerText = title;
-            mediaDesc.innerText = desc;
-            currentChannelId = roomId || 'custom_' + Math.abs(hashCode(url));
-
-            if (activeHls) {
-                activeHls.destroy();
-                activeHls = null;
-            }
-
-            if (url.includes('.m3u8') && Hls.isSupported()) {
-                activeHls = new Hls();
-                videoLoading.classList.remove('hidden');
-                activeHls.loadSource(url);
-                activeHls.attachMedia(video);
-                activeHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    videoLoading.classList.add('hidden');
-                    video.play().catch(() => {});
-                });
-                activeHls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) videoLoading.classList.add('hidden');
-                });
-            } else {
-                video.src = url;
-                video.play().catch(() => {});
-            }
-
-            // Re-subscribe chat to new room
-            if (currentUser && userNickname) {
-                subscribeToMessages();
-            }
-        }
-
-        function loadDefaultStream(url, title, chId) {
-            playStream(url, title, 'Transmisión en vivo', chId);
-        }
-
-        // Handle Carousel clicks
-        document.querySelectorAll('.channel-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const src = card.getAttribute('data-src');
-                const title = card.getAttribute('data-title');
-                const ch = card.getAttribute('data-channel');
-                loadDefaultStream(src, title, ch);
-            });
-        });
-
-        // --- LOCAL FILE & M3U LOADERS ---
-        const localFileInput = document.getElementById('localFileInput');
-        localFileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const fileUrl = URL.createObjectURL(file);
-                const safeRoomId = 'local_' + file.name.replace(/[^a-zA-Z0-9]/g, '_');
-                playStream(fileUrl, file.name, 'Reproducción de archivo local', safeRoomId);
-                closeMenu();
-            }
-        });
-
-        const loadM3uBtn = document.getElementById('loadM3uBtn');
-        loadM3uBtn.addEventListener('click', () => {
-            const url = document.getElementById('m3uUrlInput').value.trim();
-            if (url) {
-                playStream(url, 'Stream M3U Personalizado', url, 'm3u_' + Math.abs(hashCode(url)));
-                closeMenu();
-            }
-        });
-
-        const loadXtreamBtn = document.getElementById('loadXtreamBtn');
-        loadXtreamBtn.addEventListener('click', () => {
-            const server = document.getElementById('xtreamUrl').value.trim();
-            const user = document.getElementById('xtreamUser').value.trim();
-            const pass = document.getElementById('xtreamPass').value.trim();
-            if (server && user && pass) {
-                const dummyStreamUrl = `${server}/live/${user}/${pass}/stream.m3u8`;
-                playStream(dummyStreamUrl, 'Xtream Codes Stream', server, 'xtream_' + user);
-                closeMenu();
-            }
-        });
-
-        function hashCode(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = (hash << 5) - hash + str.charCodeAt(i);
-                hash |= 0;
-            }
-            return hash;
-        }
-
-        // --- CHAT UI LAYOUT CONTROLS ---
-        const toggleMiniChatBtn = document.getElementById('toggleMiniChatBtn');
-        const miniChatOverlay = document.getElementById('miniChatOverlay');
-        const chatSettingsBtn = document.getElementById('chatSettingsBtn');
-        const chatSettingsPanel = document.getElementById('chatSettingsPanel');
-        const layoutSelect = document.getElementById('layoutSelect');
-        const posSettingWrap = document.getElementById('posSettingWrap');
-        const sizeSettingWrap = document.getElementById('sizeSettingWrap');
-        const posSelect = document.getElementById('posSelect');
-        const sizeSelect = document.getElementById('sizeSelect');
-        const mediaLayoutWrapper = document.getElementById('mediaLayoutWrapper');
-        const shareRoomBtn = document.getElementById('shareRoomBtn');
-
-        let miniChatVisible = true;
-
-        toggleMiniChatBtn.addEventListener('click', () => {
-            miniChatVisible = !miniChatVisible;
-            updateChatLayout();
-            if (miniChatVisible) {
-                toggleMiniChatBtn.classList.replace('bg-zinc-800/80', 'bg-red-600/90');
-            } else {
-                toggleMiniChatBtn.classList.replace('bg-red-600/90', 'bg-zinc-800/80');
-                chatSettingsPanel.classList.add('hidden');
-            }
-        });
-
-        chatSettingsBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            chatSettingsPanel.classList.toggle('hidden');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!chatSettingsPanel.contains(e.target) && e.target !== chatSettingsBtn) {
-                chatSettingsPanel.classList.add('hidden');
-            }
-        });
-
-        function updateChatLayout() {
-            const layout = layoutSelect.value;
-            const pos = posSelect.value;
-            const size = sizeSelect.value;
-
-            mediaLayoutWrapper.className = 'w-full relative bg-black transition-all duration-300';
-            miniChatOverlay.className = 'chat-panel flex flex-col z-30 transition-all duration-300 shadow-2xl';
-
-            if (!miniChatVisible) {
-                miniChatOverlay.classList.add('hidden');
-                return;
-            }
-
-            if (layout === 'floating') {
-                posSettingWrap.classList.remove('hidden');
-                sizeSettingWrap.classList.remove('hidden');
-                miniChatOverlay.classList.add('absolute', 'bg-black/40', 'backdrop-blur-md', 'rounded-xl', 'border', 'border-white/20');
-                
-                if (size === 'small') miniChatOverlay.classList.add('w-64', 'h-[40%]');
-                else if (size === 'medium') miniChatOverlay.classList.add('w-80', 'h-[60%]');
-                else if (size === 'large') miniChatOverlay.classList.add('w-96', 'h-[80%]');
-                
-                if (pos === 'tl') miniChatOverlay.classList.add('top-4', 'left-4');
-                else if (pos === 'tr') miniChatOverlay.classList.add('top-4', 'right-4');
-                else if (pos === 'bl') miniChatOverlay.classList.add('bottom-4', 'left-4');
-                else if (pos === 'br') miniChatOverlay.classList.add('bottom-4', 'right-4');
-            } else {
-                posSettingWrap.classList.add('hidden');
-                sizeSettingWrap.classList.add('hidden');
-                miniChatOverlay.classList.add('relative', 'bg-zinc-900', 'border-zinc-800');
-                mediaLayoutWrapper.classList.add('layout-' + layout);
-            }
-        }
-
-        layoutSelect.addEventListener('change', updateChatLayout);
-        posSelect.addEventListener('change', updateChatLayout);
-        sizeSelect.addEventListener('change', updateChatLayout);
-        updateChatLayout();
-
-        shareRoomBtn.addEventListener('click', () => {
-            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentChannelId}`;
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert('¡Enlace de la sala copiado al portapapeles!\n\nCompártelo con otros usuarios para que entren a tu misma transmisión y chat.');
-                chatSettingsPanel.classList.add('hidden');
-            });
-        });
-
-        // --- FIREBASE CHAT SYSTEM ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'xtream-tv-app';
-        let firebaseConfig = {};
-        try {
-            if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {}
-
-        let app, db, auth, currentUser;
-        let unsubscribeCurrentChat = null;
-
-        const nicknameSetup = document.getElementById('nicknameSetup');
-        const activeChat = document.getElementById('activeChat');
-        const nicknameInput = document.getElementById('nicknameInput');
-        const joinChatBtn = document.getElementById('joinChatBtn');
-        const chatForm = document.getElementById('chatForm');
-        const messageInput = document.getElementById('messageInput');
-        const miniMessagesList = document.getElementById('miniMessagesList');
-
-        async function initFirebase() {
-            if (Object.keys(firebaseConfig).length === 0) {
-                miniMessagesList.innerHTML = `<div class="p-2 bg-red-900/80 text-red-200 text-xs rounded text-center">Modo demo sin Firebase.</div>`;
-                return;
-            }
-
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                currentUser = auth.currentUser;
-
-                joinChatBtn.addEventListener('click', handleJoinChat);
-                nicknameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleJoinChat(); });
-
-                if (sharedRoom) {
-                    nicknameInput.value = "Invitado_" + Math.floor(Math.random() * 1000);
-                    handleJoinChat();
-                }
-            } catch (error) {
-                console.error("Firebase init error:", error);
-            }
-        }
-
-        function handleJoinChat() {
-            const nick = nicknameInput.value.trim();
-            if (nick.length > 0) {
-                userNickname = nick;
-                nicknameSetup.classList.add('hidden');
-                activeChat.classList.add('flex');
-                messageInput.focus();
-                subscribeToMessages();
-            }
-        }
-
-        function subscribeToMessages() {
-            if (!currentUser) return;
-            if (unsubscribeCurrentChat) unsubscribeCurrentChat();
-
-            const chatRef = collection(db, 'artifacts', appId, 'public', 'data', `chat_${currentChannelId}`);
-            
-            unsubscribeCurrentChat = onSnapshot(chatRef, (snapshot) => {
-                const messages = [];
-                snapshot.forEach(doc => messages.push({ id: doc.id, ...doc.data() }));
-                messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-                miniMessagesList.innerHTML = '';
-                messages.slice(-50).forEach(msg => {
-                    miniMessagesList.appendChild(renderMiniMessage(msg));
-                });
-                miniMessagesList.scrollTop = miniMessagesList.scrollHeight;
-            });
-        }
-
-        function renderMiniMessage(msgData) {
-            const isMe = msgData.senderId === currentUser.uid;
-            const msgEl = document.createElement('div');
-            msgEl.className = 'flex flex-col w-full mb-1';
-            
-            if (isMe) {
-                msgEl.innerHTML = `
-                    <div class="self-end max-w-[90%]">
-                        <span class="block text-[10px] font-bold text-red-400 text-shadow-video text-right mb-0.5">Tú</span>
-                        <div class="bg-red-600/80 backdrop-blur-sm text-white px-2 py-1.5 rounded-lg rounded-tr-sm text-xs break-words shadow-md border border-red-500/50 inline-block">
-                            ${escapeHTML(msgData.text)}
-                        </div>
-                    </div>
-                `;
-            } else {
-                msgEl.innerHTML = `
-                    <div class="self-start max-w-[90%]">
-                        <span class="block text-[10px] font-bold text-zinc-300 text-shadow-video mb-0.5">${escapeHTML(msgData.nickname)}</span>
-                        <div class="bg-black/60 backdrop-blur-sm text-zinc-100 px-2 py-1.5 rounded-lg rounded-tl-sm text-xs break-words border border-white/10 shadow-md inline-block">
-                            ${escapeHTML(msgData.text)}
-                        </div>
-                    </div>
-                `;
-            }
-            return msgEl;
-        }
-
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const text = messageInput.value.trim();
-            if (!text || !currentUser) return;
-
-            messageInput.value = '';
-            const chatRef = collection(db, 'artifacts', appId, 'public', 'data', `chat_${currentChannelId}`);
-            
-            try {
-                await addDoc(chatRef, {
-                    text: text,
-                    nickname: userNickname,
-                    senderId: currentUser.uid,
-                    timestamp: Date.now()
-                });
-            } catch (error) {
-                console.error("Error sending message:", error);
-            }
-        });
-
-        function escapeHTML(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
+        // Seleccionar la primera categoría disponible por defecto
+        const categories = Object.keys(loadedPlaylistCategories);
+        if (categories.length > 0) {
+          switchCategory(categories[0]);
         }
 
-        // If sharedRoom was passed, auto-load stream placeholder if needed
-        if (sharedRoom) {
-            mediaTitle.innerText = "Sala Compartida";
-            mediaDesc.innerText = "ID de Sala: " + sharedRoom;
-        }
+        // Reproducir el primer canal automáticamente
+        const firstCat = categories[0];
+        const firstChannel = loadedPlaylistCategories[firstCat][0];
+        playStream(firstChannel.url, firstChannel.name, "sala-m3u-" + firstChannel.name.replace(/[^a-zA-Z0-9]/g, '_'));
 
-        initFirebase();
-    </script>
+        alert(`¡Lista M3U procesada con éxito! Se organizaron ${totalCount} canales en ${categories.length} categorías.`);
+      } else {
+        alert("No se encontraron enlaces de streaming válidos en el archivo M3U.");
+      }
+    }
+
+    // Cambiar de Categoría en la UI
+    window.switchCategory = function(catName) {
+      activeCategory = catName;
+      
+      // Renderizar pestañas
+      const tabsContainer = document.getElementById('categoryTabs');
+      tabsContainer.innerHTML = '';
+      
+      Object.keys(loadedPlaylistCategories).forEach(cat => {
+        const btn = document.createElement('button');
+        const isActive = cat === activeCategory;
+        btn.className = `px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+          isActive 
+            ? 'bg-red-600 text-white shadow-lg' 
+            : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+        }`;
+        btn.innerText = `${cat} (${loadedPlaylistCategories[cat].length})`;
+        btn.onclick = () => switchCategory(cat);
+        tabsContainer.appendChild(btn);
+      });
+
+      // Renderizar botones de canales de esta categoría
+      const gridContainer = document.getElementById('playlistItemsGrid');
+      gridContainer.innerHTML = '';
+
+      const channels = loadedPlaylistCategories[catName] || [];
+      channels.forEach(ch => {
+        const card = document.createElement('button');
+        card.className = "bg-neutral-900 border border-neutral-800 hover:border-red-600 p-3 rounded-lg text-left transition flex flex-col justify-between group";
+        card.innerHTML = `
+          <div class="flex items-center space-x-2 mb-2">
+            <span class="w-2 h-2 rounded-full bg-red-600 group-hover:scale-125 transition"></span>
+            <span class="text-xs font-bold text-white truncate">${escapeHtml(ch.name)}</span>
+          </div>
+          <span class="text-[10px] text-neutral-400 group-hover:text-red-400 font-medium">Reproducir canal →</span>
+        `;
+        card.onclick = () => {
+          playStream(ch.url, ch.name, "sala-m3u-" + ch.name.replace(/[^a-zA-Z0-9]/g, '_'));
+        };
+        gridContainer.appendChild(card);
+      });
+    };
+
+    // CARGAR M3U POR URL
+    document.getElementById('loadM3uBtn').onclick = async () => {
+      const url = document.getElementById('m3uUrlInput').value.trim();
+      if (!url) {
+        alert("Por favor ingresa una URL M3U válida.");
+        return;
+      }
+
+      try {
+        alert("Descargando y procesando lista M3U...");
+        const response = await fetch(url);
+        const text = await response.text();
+        parseM3UContent(text, "Lista M3U Remota");
+        closeSidebar();
+      } catch (e) {
+        console.error(e);
+        alert("No se pudo descargar la lista M3U por restricciones de CORS del navegador. Prueba cargando el archivo M3U directamente desde tu dispositivo.");
+      }
+    };
+
+    // CARGAR ARCHIVO LOCAL (.m3u o video)
+    document.getElementById('localMediaInput').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (file.name.endsWith('.m3u') || file.name.endsWith('.m3u8')) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          parseM3UContent(event.target.result, file.name);
+          closeSidebar();
+        };
+        reader.readAsText(file);
+      } else {
+        const fileURL = URL.createObjectURL(file);
+        playStream(fileURL, file.name, "local-file-" + file.name.replace(/[^a-zA-Z0-9]/g, '_'));
+        closeSidebar();
+      }
+    };
+
+    // INICIALIZAR AL CARGAR LA PÁGINA
+    window.onload = () => {
+      renderDefaultChannels();
+      
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room');
+      const urlParam = params.get('url');
+      const titleParam = params.get('title');
+
+      if (urlParam) {
+        const decodedUrl = decodeURIComponent(urlParam);
+        const decodedTitle = titleParam ? decodeURIComponent(titleParam) : "Sala Compartida";
+        playStream(decodedUrl, decodedTitle, roomParam || "sala-compartida");
+      } else {
+        playStream(defaultChannels[0].url, defaultChannels[0].name, defaultChannels[0].room);
+      }
+    };
+  </script>
 </body>
 </html>
